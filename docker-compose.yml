@@ -1,0 +1,88 @@
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-autopatch}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-autopatch}
+      POSTGRES_DB: ${POSTGRES_DB:-autopatch}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - ./init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-autopatch} -d $${POSTGRES_DB:-autopatch}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+
+  sandbox-builder:
+    build:
+      context: ./sandbox-runner
+      args:
+        SANDBOX_BASE_IMAGE: ${SANDBOX_BASE_IMAGE:-node:20-slim}
+    image: autopatch-sandbox:latest
+    restart: unless-stopped
+    entrypoint: ["sh", "-c", "touch /tmp/.sandbox-ready && exec sleep infinity"]
+    healthcheck:
+      test: ["CMD", "test", "-f", "/tmp/.sandbox-ready"]
+      interval: 2s
+      timeout: 2s
+      retries: 5
+      start_period: 1s
+
+  orchestrator:
+    build:
+      context: ./orchestrator
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      sandbox-builder:
+        condition: service_healthy
+    ports:
+      - "${ORCHESTRATOR_PORT:-8080}:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      PORT: "8080"
+      POSTGRES_USER: ${POSTGRES_USER:-autopatch}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-autopatch}
+      POSTGRES_DB: ${POSTGRES_DB:-autopatch}
+      POSTGRES_HOST: ${POSTGRES_HOST:-db}
+      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+      DATABASE_URL: ${DATABASE_URL:-postgres://${POSTGRES_USER:-autopatch}:${POSTGRES_PASSWORD:-autopatch}@${POSTGRES_HOST:-db}:${POSTGRES_PORT:-5432}/${POSTGRES_DB:-autopatch}?sslmode=disable}
+      TARGET_REPO_URL: ${TARGET_REPO_URL:-}
+      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+      GITHUB_WEBHOOK_SECRET: ${GITHUB_WEBHOOK_SECRET:-}
+      BASE_BRANCH: ${BASE_BRANCH:-main}
+      LLM_BASE_URL: ${LLM_BASE_URL:-https://api.openai.com/v1}
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-auto}
+      VECTOR_DIM: ${VECTOR_DIM:-768}
+      TRIAGE_MODEL: ${TRIAGE_MODEL:-auto}
+      CODING_MODEL: ${CODING_MODEL:-auto}
+      SIMILARITY_THRESHOLD: ${SIMILARITY_THRESHOLD:-0.85}
+      PROTECTED_PATHS: ${PROTECTED_PATHS:-.env,docker-compose.yml,.github/workflows}
+      MAX_DIFF_LINES: ${MAX_DIFF_LINES:-200}
+      TEST_COMMAND: ${TEST_COMMAND:-npm test}
+      SANDBOX_IMAGE: ${SANDBOX_IMAGE:-autopatch-sandbox:latest}
+      CORS_ALLOWED_ORIGIN: ${CORS_ALLOWED_ORIGIN:-*}
+      ADMIN_USER: ${ADMIN_USER:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      ALERT_WEBHOOK_URL: ${ALERT_WEBHOOK_URL:-}
+      PUBLIC_DASHBOARD_URL: ${PUBLIC_DASHBOARD_URL:-}
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/healthz >/dev/null 2>&1 || curl -fsS http://localhost:8080/healthz >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+volumes:
+  pgdata:

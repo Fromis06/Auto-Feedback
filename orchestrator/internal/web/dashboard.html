@@ -1,0 +1,1006 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>autopatch-engine — Control Plane</title>
+  <style>
+    :root {
+      --bg: #0b1120;
+      --surface: #111827;
+      --surface-2: #1e293b;
+      --border: #263248;
+      --text: #f1f5f9;
+      --muted: #94a3b8;
+      --accent: #3b82f6;
+      --accent-hover: #2563eb;
+      --green: #22c55e;
+      --yellow: #eab308;
+      --orange: #f97316;
+      --red: #ef4444;
+      --purple: #a855f7;
+      --cyan: #06b6d4;
+      --radius: 10px;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, sans-serif;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      line-height: 1.5;
+      min-height: 100vh;
+    }
+
+    a { color: #60a5fa; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    .container {
+      max-width: 1320px;
+      margin: 0 auto;
+      padding: 20px 16px 64px;
+    }
+
+    /* Header */
+    header {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 20px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .brand-dot {
+      width: 11px;
+      height: 11px;
+      border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 10px rgba(34, 197, 94, 0.7);
+    }
+
+    .brand h1 {
+      font-size: 1.25rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    .brand span {
+      font-size: 0.78rem;
+      color: var(--muted);
+      background: var(--surface-2);
+      padding: 2px 8px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+    }
+
+    .header-actions {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .toggle-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.85rem;
+      color: var(--muted);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      padding: 6px 10px;
+      border-radius: 8px;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      padding: 7px 13px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--surface-2);
+      color: var(--text);
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s, opacity 0.15s;
+    }
+
+    .btn:hover:not(:disabled) { background: #293548; border-color: #3b4b66; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .btn-primary:hover:not(:disabled) { background: var(--accent-hover); border-color: var(--accent-hover); }
+    .btn-success { background: #15803d; border-color: #16a34a; color: #fff; }
+    .btn-success:hover:not(:disabled) { background: #166534; }
+    .btn-warning { background: #b45309; border-color: #d97706; color: #fff; }
+    .btn-warning:hover:not(:disabled) { background: #92400e; }
+    .btn-danger { background: #991b1b; border-color: #dc2626; color: #fff; }
+    .btn-danger:hover:not(:disabled) { background: #7f1d1d; }
+
+    /* KPI Grid */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
+      margin-bottom: 22px;
+    }
+
+    @media (max-width: 900px) {
+      .kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+
+    @media (max-width: 500px) {
+      .kpi-grid { grid-template-columns: 1fr; }
+    }
+
+    .kpi-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px 18px;
+    }
+
+    .kpi-label {
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+
+    .kpi-value {
+      font-size: 1.85rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    .kpi-sub {
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+
+    /* Filter Tabs */
+    .tabs-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+
+    .tab-btn {
+      padding: 6px 12px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--muted);
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .tab-btn:hover { color: var(--text); border-color: #475569; }
+    .tab-btn.active {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+
+    /* Table Card */
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+
+    .table-wrap {
+      width: 100%;
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-size: 0.875rem;
+    }
+
+    thead {
+      background: rgba(30, 41, 59, 0.7);
+      border-bottom: 1px solid var(--border);
+    }
+
+    th {
+      padding: 11px 14px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+
+    td {
+      padding: 12px 14px;
+      border-bottom: 1px solid rgba(38, 50, 72, 0.65);
+      vertical-align: middle;
+    }
+
+    tbody tr {
+      cursor: pointer;
+      transition: background 0.12s;
+    }
+
+    tbody tr:hover { background: rgba(59, 130, 246, 0.08); }
+    tbody tr:last-child td { border-bottom: none; }
+
+    .summary-cell {
+      max-width: 380px;
+    }
+
+    .summary-title {
+      font-weight: 600;
+      color: var(--text);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      max-width: 360px;
+    }
+
+    .summary-sub {
+      font-size: 0.78rem;
+      color: var(--muted);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      max-width: 360px;
+    }
+
+    .chip {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.03em;
+      white-space: nowrap;
+      border: 1px solid transparent;
+    }
+
+    .chip-module {
+      background: rgba(6, 182, 212, 0.12);
+      color: #67e8f9;
+      border-color: rgba(6, 182, 212, 0.3);
+      font-family: var(--mono);
+    }
+
+    .chip-status-QUEUED { background: rgba(59, 130, 246, 0.16); color: #93c5fd; border-color: rgba(59, 130, 246, 0.35); }
+    .chip-status-RUNNING { background: rgba(234, 179, 8, 0.16); color: #fde047; border-color: rgba(234, 179, 8, 0.35); }
+    .chip-status-PR_OPENED { background: rgba(168, 85, 247, 0.16); color: #d8b4fe; border-color: rgba(168, 85, 247, 0.35); }
+    .chip-status-MERGED { background: rgba(34, 197, 94, 0.16); color: #86efac; border-color: rgba(34, 197, 94, 0.35); }
+    .chip-status-ABORTED { background: rgba(239, 68, 68, 0.16); color: #fca5a5; border-color: rgba(239, 68, 68, 0.35); }
+    .chip-status-IGNORED_OUTDATED { background: rgba(148, 163, 184, 0.16); color: #cbd5e1; border-color: rgba(148, 163, 184, 0.35); }
+    .chip-status-FEATURE_REQUEST { background: rgba(249, 115, 22, 0.16); color: #fdba74; border-color: rgba(249, 115, 22, 0.35); }
+
+    .chip-prio-CRITICAL { background: rgba(239, 68, 68, 0.2); color: #fca5a5; }
+    .chip-prio-HIGH { background: rgba(249, 115, 22, 0.2); color: #fdba74; }
+    .chip-prio-MEDIUM, .chip-prio-NORMAL { background: rgba(59, 130, 246, 0.15); color: #93c5fd; }
+    .chip-prio-LOW { background: rgba(148, 163, 184, 0.16); color: #cbd5e1; }
+
+    .chip-guard-PASSED { background: rgba(34, 197, 94, 0.15); color: #86efac; }
+    .chip-guard-BLOCKED { background: rgba(239, 68, 68, 0.18); color: #fca5a5; }
+    .chip-guard-NONE { background: transparent; color: var(--muted); }
+
+    .count-pill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 28px;
+      padding: 2px 7px;
+      border-radius: 6px;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      font-family: var(--mono);
+      font-size: 0.78rem;
+      font-weight: 700;
+    }
+
+    .pagination {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+      border-top: 1px solid var(--border);
+      font-size: 0.82rem;
+      color: var(--muted);
+    }
+
+    .empty-state {
+      padding: 40px 20px;
+      text-align: center;
+      color: var(--muted);
+    }
+
+    /* Mobile Card Stack */
+    @media (max-width: 768px) {
+      table, thead, tbody, th, td, tr { display: block; }
+      thead { display: none; }
+      tbody tr {
+        padding: 12px 14px;
+        border-bottom: 1px solid var(--border);
+      }
+      td {
+        border: none;
+        padding: 4px 0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+      }
+      td::before {
+        content: attr(data-label);
+        font-size: 0.72rem;
+        text-transform: uppercase;
+        color: var(--muted);
+        flex-shrink: 0;
+      }
+      .summary-cell, .summary-title, .summary-sub {
+        max-width: 210px;
+        text-align: right;
+      }
+    }
+
+    /* Drawer / Modal */
+    .drawer-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(2, 6, 23, 0.72);
+      backdrop-filter: blur(2px);
+      display: none;
+      justify-content: flex-end;
+      z-index: 1000;
+    }
+
+    .drawer-backdrop.open { display: flex; }
+
+    .drawer {
+      width: min(680px, 100vw);
+      height: 100vh;
+      background: var(--surface);
+      border-left: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .drawer-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .drawer-header h2 {
+      font-size: 1.05rem;
+      font-weight: 700;
+    }
+
+    .drawer-body {
+      padding: 18px 20px 32px;
+      overflow-y: auto;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .meta-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      background: rgba(15, 23, 42, 0.75);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px;
+      font-size: 0.82rem;
+    }
+
+    .meta-item span {
+      display: block;
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .meta-item strong {
+      font-family: var(--mono);
+      word-break: break-all;
+    }
+
+    .section-box {
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 14px;
+    }
+
+    .section-box h3 {
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+
+    .pre-log {
+      background: #060b16;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 10px 12px;
+      font-family: var(--mono);
+      font-size: 0.78rem;
+      color: #e2e8f0;
+      overflow-x: auto;
+      max-height: 260px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .callout-note {
+      background: rgba(234, 179, 8, 0.12);
+      border: 1px solid rgba(234, 179, 8, 0.35);
+      color: #fef08a;
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-size: 0.85rem;
+    }
+
+    .actions-box {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      background: rgba(30, 41, 59, 0.55);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px;
+    }
+
+    .action-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .input-sm, .select-sm {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 8px;
+      padding: 7px 10px;
+      font-size: 0.85rem;
+    }
+
+    .input-sm { width: 110px; font-family: var(--mono); }
+
+    /* Toast */
+    .toast {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 10px 16px;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+      z-index: 2000;
+      display: none;
+    }
+
+    .toast.show { display: block; }
+    .toast.error { border-color: var(--red); color: #fecaca; }
+    .toast.success { border-color: var(--green); color: #bbf7d0; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="brand">
+        <div class="brand-dot" id="healthDot"></div>
+        <h1>autopatch-engine</h1>
+        <span>Admin Control Plane</span>
+      </div>
+      <div class="header-actions">
+        <label class="toggle-label">
+          <input type="checkbox" id="autoRefreshToggle" checked />
+          Auto-refresh (10s)
+        </label>
+        <button class="btn" id="refreshBtn" type="button">Refresh</button>
+      </div>
+    </header>
+
+    <section class="kpi-grid" aria-label="Overview Statistics">
+      <div class="kpi-card">
+        <div class="kpi-label">Total Tickets</div>
+        <div class="kpi-value" id="statTotal">-</div>
+        <div class="kpi-sub" id="statActive">Queued: 0 · Running: 0</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Open PRs</div>
+        <div class="kpi-value" id="statPROpened" style="color: #c084fc;">-</div>
+        <div class="kpi-sub" id="statFeatures">Feature Requests: 0</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Merge Rate</div>
+        <div class="kpi-value" id="statMergeRate" style="color: #4ade80;">-</div>
+        <div class="kpi-sub" id="statMerged">Merged: 0</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Blocked / Failed</div>
+        <div class="kpi-value" id="statAborted" style="color: #f87171;">-</div>
+        <div class="kpi-sub" id="statOutdated">Outdated: 0</div>
+      </div>
+    </section>
+
+    <nav class="tabs-bar" id="statusTabs" aria-label="Filter by Status">
+      <button class="tab-btn active" data-status="ALL" type="button">ALL</button>
+      <button class="tab-btn" data-status="QUEUED" type="button">QUEUED</button>
+      <button class="tab-btn" data-status="RUNNING" type="button">RUNNING</button>
+      <button class="tab-btn" data-status="PR_OPENED" type="button">PR_OPENED</button>
+      <button class="tab-btn" data-status="MERGED" type="button">MERGED</button>
+      <button class="tab-btn" data-status="ABORTED" type="button">ABORTED</button>
+      <button class="tab-btn" data-status="FEATURE_REQUEST" type="button">FEATURE_REQUEST</button>
+      <button class="tab-btn" data-status="IGNORED_OUTDATED" type="button">IGNORED_OUTDATED</button>
+    </nav>
+
+    <section class="panel">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Module</th>
+              <th>Summary / User Report</th>
+              <th>Count</th>
+              <th>Priority</th>
+              <th>Status</th>
+              <th>Guardrail</th>
+              <th>PR</th>
+              <th>Updated</th>
+            </tr>
+          </thead>
+          <tbody id="ticketsBody">
+            <tr><td colspan="9" class="empty-state">Loading tickets...</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="pagination">
+        <span id="pageInfo">Showing 0 tickets</span>
+        <div style="display: flex; gap: 8px;">
+          <button class="btn" id="prevPageBtn" type="button" disabled>Prev</button>
+          <button class="btn" id="nextPageBtn" type="button" disabled>Next</button>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- Detail Drawer -->
+  <div class="drawer-backdrop" id="drawerBackdrop" role="dialog" aria-modal="true" aria-labelledby="drawerTitle">
+    <div class="drawer">
+      <div class="drawer-header">
+        <h2 id="drawerTitle">Ticket Detail</h2>
+        <button class="btn" id="closeDrawerBtn" type="button">Close</button>
+      </div>
+      <div class="drawer-body" id="drawerBody"></div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    (function () {
+      const state = {
+        status: "ALL",
+        limit: 25,
+        offset: 0,
+        total: 0,
+        tickets: [],
+        selectedId: null,
+        timer: null,
+      };
+
+      const $ = (id) => document.getElementById(id);
+
+      function esc(str) {
+        if (str === null || str === undefined) return "";
+        return String(str)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#39;");
+      }
+
+      function safeHttpURL(raw) {
+        if (!raw) return "";
+        try {
+          const u = new URL(raw);
+          if (u.protocol === "https:" || u.protocol === "http:") {
+            return u.toString();
+          }
+        } catch (_) {}
+        return "";
+      }
+
+      function formatTime(iso) {
+        if (!iso) return "-";
+        const d = new Date(iso);
+        if (isNaN(d.getTime())) return iso;
+        return d.toLocaleString();
+      }
+
+      function formatJSON(val) {
+        if (val === null || val === undefined) return "[]";
+        if (typeof val === "string") {
+          try {
+            return JSON.stringify(JSON.parse(val), null, 2);
+          } catch (_) {
+            return val;
+          }
+        }
+        return JSON.stringify(val, null, 2);
+      }
+
+      let toastTimer = null;
+      function showToast(msg, kind) {
+        const el = $("toast");
+        el.textContent = msg;
+        el.className = "toast show " + (kind || "");
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => {
+          el.className = "toast";
+        }, 3500);
+      }
+
+      async function apiFetch(url, opts) {
+        const res = await fetch(url, Object.assign({ credentials: "same-origin" }, opts || {}));
+        if (res.status === 401) {
+          showToast("Authentication required. Reload page to sign in.", "error");
+          throw new Error("Unauthorized");
+        }
+        const text = await res.text();
+        let data = {};
+        if (text) {
+          try { data = JSON.parse(text); } catch (_) { data = { raw: text }; }
+        }
+        if (!res.ok) {
+          throw new Error(data.error || ("HTTP " + res.status));
+        }
+        return data;
+      }
+
+      function guardrailChip(status) {
+        if (!status) return '<span class="chip chip-guard-NONE">—</span>';
+        const cls = status === "PASSED" ? "chip-guard-PASSED" : "chip-guard-BLOCKED";
+        return '<span class="chip ' + cls + '">' + esc(status) + '</span>';
+      }
+
+      async function loadStats() {
+        const s = await apiFetch("/api/v1/stats");
+        $("statTotal").textContent = s.total_tickets ?? 0;
+        $("statActive").textContent = "Queued: " + (s.queued ?? 0) + " · Running: " + (s.running ?? 0);
+        $("statPROpened").textContent = s.pr_opened ?? 0;
+        $("statFeatures").textContent = "Feature Requests: " + (s.feature_request ?? 0);
+        $("statMergeRate").textContent = (s.merged_rate_percent ?? 0) + "%";
+        $("statMerged").textContent = "Merged: " + (s.merged ?? 0);
+        $("statAborted").textContent = s.aborted ?? 0;
+        $("statOutdated").textContent = "Outdated: " + (s.ignored_outdated ?? 0);
+      }
+
+      async function loadTickets() {
+        const params = new URLSearchParams();
+        if (state.status && state.status !== "ALL") params.set("status", state.status);
+        params.set("limit", String(state.limit));
+        params.set("offset", String(state.offset));
+
+        const data = await apiFetch("/api/v1/tickets?" + params.toString());
+        state.tickets = data.tickets || [];
+        state.total = data.total || 0;
+        renderTable();
+
+        if (state.selectedId !== null) {
+          const found = state.tickets.find((t) => t.id === state.selectedId);
+          if (found) renderDrawer(found);
+        }
+      }
+
+      function renderTable() {
+        const tbody = $("ticketsBody");
+        if (!state.tickets.length) {
+          tbody.innerHTML = '<tr><td colspan="9" class="empty-state">No tickets found for this filter.</td></tr>';
+        } else {
+          tbody.innerHTML = state.tickets.map((t) => {
+            const title = t.technical_summary || t.user_message || "(no description)";
+            const prLink = safeHttpURL(t.pr_url);
+            const prCell = prLink
+              ? '<a href="' + esc(prLink) + '" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()">PR #' + esc(t.pr_number || "view") + ' ↗</a>'
+              : '<span style="color:var(--muted)">—</span>';
+
+            return (
+              '<tr data-id="' + esc(t.id) + '">' +
+                '<td data-label="ID" style="font-family:var(--mono);font-weight:700;">#' + esc(t.id) + '</td>' +
+                '<td data-label="Module"><span class="chip chip-module">' + esc(t.module_tag || "general") + '</span></td>' +
+                '<td data-label="Summary" class="summary-cell">' +
+                  '<div class="summary-title" title="' + esc(title) + '">' + esc(title) + '</div>' +
+                  '<div class="summary-sub" title="' + esc(t.user_message) + '">' + esc(t.user_message) + '</div>' +
+                '</td>' +
+                '<td data-label="Count"><span class="count-pill">' + esc(t.occurrence_count) + '</span></td>' +
+                '<td data-label="Priority"><span class="chip chip-prio-' + esc(t.priority) + '">' + esc(t.priority) + '</span></td>' +
+                '<td data-label="Status"><span class="chip chip-status-' + esc(t.status) + '">' + esc(t.status) + '</span></td>' +
+                '<td data-label="Guardrail">' + guardrailChip(t.guardrail_status) + '</td>' +
+                '<td data-label="PR">' + prCell + '</td>' +
+                '<td data-label="Updated" style="color:var(--muted);font-size:0.78rem;white-space:nowrap;">' + esc(formatTime(t.updated_at)) + '</td>' +
+              '</tr>'
+            );
+          }).join("");
+
+          tbody.querySelectorAll("tr[data-id]").forEach((row) => {
+            row.addEventListener("click", () => {
+              const id = Number(row.getAttribute("data-id"));
+              const ticket = state.tickets.find((x) => x.id === id);
+              if (ticket) openDrawer(ticket);
+            });
+          });
+        }
+
+        const start = state.total === 0 ? 0 : state.offset + 1;
+        const end = Math.min(state.offset + state.tickets.length, state.total);
+        $("pageInfo").textContent = "Showing " + start + "–" + end + " of " + state.total + " tickets";
+        $("prevPageBtn").disabled = state.offset <= 0;
+        $("nextPageBtn").disabled = state.offset + state.limit >= state.total;
+      }
+
+      function openDrawer(ticket) {
+        state.selectedId = ticket.id;
+        renderDrawer(ticket);
+        $("drawerBackdrop").classList.add("open");
+      }
+
+      function closeDrawer() {
+        state.selectedId = null;
+        $("drawerBackdrop").classList.remove("open");
+      }
+
+      function renderDrawer(t) {
+        $("drawerTitle").textContent = "Ticket #" + t.id + " · " + (t.module_tag || "general");
+        const prLink = safeHttpURL(t.pr_url);
+        const canRetry = t.status === "ABORTED" || t.status === "IGNORED_OUTDATED";
+        const isFeature = t.status === "FEATURE_REQUEST";
+
+        const reviewNoteBlock = t.human_review_note
+          ? '<div class="callout-note"><strong>Human Review Note:</strong><br/>' + esc(t.human_review_note) + '</div>'
+          : '';
+
+        const prMeta = prLink
+          ? '<a href="' + esc(prLink) + '" target="_blank" rel="noopener noreferrer">' + esc(prLink) + ' ↗</a>'
+          : "None";
+
+        $("drawerBody").innerHTML =
+          '<div class="meta-grid">' +
+            '<div class="meta-item"><span>Status</span><span class="chip chip-status-' + esc(t.status) + '">' + esc(t.status) + '</span></div>' +
+            '<div class="meta-item"><span>Guardrail</span>' + guardrailChip(t.guardrail_status) + '</div>' +
+            '<div class="meta-item"><span>Module Tag</span><strong>' + esc(t.module_tag || "general") + '</strong></div>' +
+            '<div class="meta-item"><span>Occurrences</span><strong>' + esc(t.occurrence_count) + '</strong></div>' +
+            '<div class="meta-item"><span>App Commit SHA</span><strong>' + esc(t.app_commit_sha || "N/A") + '</strong></div>' +
+            '<div class="meta-item"><span>Max Diff Override</span><strong>' + esc(t.max_diff_override ? (t.max_diff_override + " lines") : "Default (.env)") + '</strong></div>' +
+            '<div class="meta-item" style="grid-column: span 2;"><span>Pull Request</span><strong>' + prMeta + '</strong></div>' +
+          '</div>' +
+
+          '<div class="actions-box">' +
+            '<div style="font-size:0.78rem;text-transform:uppercase;letter-spacing:0.05em;color:var(--muted);font-weight:600;">Manual Interventions</div>' +
+            '<div class="action-row">' +
+              (canRetry
+                ? '<button class="btn btn-primary" id="actRetryBtn" type="button">Retry</button>'
+                : '') +
+              (canRetry
+                ? '<input class="input-sm" id="diffOverrideInput" type="number" min="1" placeholder="500" value="' + esc(t.max_diff_override || 500) + '" aria-label="Max diff lines override" />' +
+                  '<button class="btn btn-warning" id="actRetryDiffBtn" type="button">Retry &amp; Override Diff Limit</button>'
+                : '') +
+              (isFeature
+                ? '<button class="btn btn-success" id="actPromoteBtn" type="button">Promote to Queue</button>'
+                : '') +
+              (t.status !== "ABORTED" && t.status !== "MERGED"
+                ? '<button class="btn btn-danger" id="actAbortBtn" type="button">Dismiss / Abort</button>'
+                : '') +
+            '</div>' +
+            '<div class="action-row">' +
+              '<label for="prioSelect" style="font-size:0.8rem;color:var(--muted);">Priority:</label>' +
+              '<select class="select-sm" id="prioSelect">' +
+                ["NORMAL", "LOW", "MEDIUM", "HIGH", "CRITICAL"].map((p) =>
+                  '<option value="' + p + '"' + (t.priority === p ? " selected" : "") + '>' + p + '</option>'
+                ).join("") +
+              '</select>' +
+              '<button class="btn" id="actSavePrioBtn" type="button">Update Priority</button>' +
+            '</div>' +
+          '</div>' +
+
+          reviewNoteBlock +
+
+          '<div class="section-box">' +
+            '<h3>Technical Summary</h3>' +
+            '<p style="font-size:0.9rem;">' + esc(t.technical_summary || "—") + '</p>' +
+          '</div>' +
+
+          '<div class="section-box">' +
+            '<h3>User Report</h3>' +
+            '<p style="font-size:0.9rem;white-space:pre-wrap;">' + esc(t.user_message || "—") + '</p>' +
+          '</div>' +
+
+          '<div class="section-box">' +
+            '<h3>Sandbox Execution / Test Output (Attempt #' + esc(t.attempt_number || 0) + ')</h3>' +
+            '<pre class="pre-log">' + esc(t.test_output || "No sandbox output recorded yet.") + '</pre>' +
+          '</div>' +
+
+          '<div class="section-box">' +
+            '<h3>Console Errors</h3>' +
+            '<pre class="pre-log">' + esc(formatJSON(t.console_errors)) + '</pre>' +
+          '</div>' +
+
+          '<div class="section-box">' +
+            '<h3>Failed Network Logs</h3>' +
+            '<pre class="pre-log">' + esc(formatJSON(t.network_logs)) + '</pre>' +
+          '</div>' +
+
+          '<div class="section-box">' +
+            '<h3>Action Breadcrumbs</h3>' +
+            '<pre class="pre-log">' + esc(formatJSON(t.breadcrumbs)) + '</pre>' +
+          '</div>' +
+
+          '<div class="section-box">' +
+            '<h3>Device Metadata</h3>' +
+            '<pre class="pre-log">' + esc(formatJSON(t.device_meta)) + '</pre>' +
+          '</div>';
+
+        const retryBtn = $("actRetryBtn");
+        if (retryBtn) {
+          retryBtn.addEventListener("click", () => handleRetry(t.id, null));
+        }
+        const retryDiffBtn = $("actRetryDiffBtn");
+        if (retryDiffBtn) {
+          retryDiffBtn.addEventListener("click", () => {
+            const val = parseInt($("diffOverrideInput").value, 10);
+            if (!val || val <= 0) {
+              showToast("Enter a positive integer for max_diff_override.", "error");
+              return;
+            }
+            handleRetry(t.id, val);
+          });
+        }
+        const promoteBtn = $("actPromoteBtn");
+        if (promoteBtn) {
+          promoteBtn.addEventListener("click", () => handlePatch(t.id, { status: "QUEUED" }, "Promoted ticket #" + t.id + " to QUEUED"));
+        }
+        const abortBtn = $("actAbortBtn");
+        if (abortBtn) {
+          abortBtn.addEventListener("click", () => handlePatch(t.id, { status: "ABORTED" }, "Ticket #" + t.id + " marked ABORTED"));
+        }
+        const savePrioBtn = $("actSavePrioBtn");
+        if (savePrioBtn) {
+          savePrioBtn.addEventListener("click", () => {
+            const p = $("prioSelect").value;
+            handlePatch(t.id, { priority: p }, "Priority updated to " + p);
+          });
+        }
+      }
+
+      async function handleRetry(id, maxDiffOverride) {
+        try {
+          const payload = maxDiffOverride ? { max_diff_override: maxDiffOverride } : {};
+          await apiFetch("/api/v1/tickets/" + id + "/retry", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+          showToast(
+            maxDiffOverride
+              ? "Ticket #" + id + " requeued with MAX_DIFF_LINES=" + maxDiffOverride
+              : "Ticket #" + id + " requeued",
+            "success"
+          );
+          await refreshAll();
+        } catch (err) {
+          showToast("Retry failed: " + err.message, "error");
+        }
+      }
+
+      async function handlePatch(id, body, okMsg) {
+        try {
+          await apiFetch("/api/v1/tickets/" + id, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+          });
+          showToast(okMsg, "success");
+          await refreshAll();
+        } catch (err) {
+          showToast("Update failed: " + err.message, "error");
+        }
+      }
+
+      async function refreshAll() {
+        try {
+          await Promise.all([loadStats(), loadTickets()]);
+          $("healthDot").style.background = "var(--green)";
+        } catch (err) {
+          $("healthDot").style.background = "var(--red)";
+        }
+      }
+
+      function configureAutoRefresh() {
+        clearInterval(state.timer);
+        if ($("autoRefreshToggle").checked) {
+          state.timer = setInterval(refreshAll, 10000);
+        }
+      }
+
+      // Wire events
+      $("refreshBtn").addEventListener("click", refreshAll);
+      $("autoRefreshToggle").addEventListener("change", configureAutoRefresh);
+      $("closeDrawerBtn").addEventListener("click", closeDrawer);
+      $("drawerBackdrop").addEventListener("click", (e) => {
+        if (e.target === $("drawerBackdrop")) closeDrawer();
+      });
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") closeDrawer();
+      });
+
+      $("statusTabs").querySelectorAll(".tab-btn").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          $("statusTabs").querySelectorAll(".tab-btn").forEach((b) => b.classList.remove("active"));
+          btn.classList.add("active");
+          state.status = btn.getAttribute("data-status");
+          state.offset = 0;
+          loadTickets();
+        });
+      });
+
+      $("prevPageBtn").addEventListener("click", () => {
+        state.offset = Math.max(0, state.offset - state.limit);
+        loadTickets();
+      });
+      $("nextPageBtn").addEventListener("click", () => {
+        if (state.offset + state.limit < state.total) {
+          state.offset += state.limit;
+          loadTickets();
+        }
+      });
+
+      configureAutoRefresh();
+      refreshAll();
+    })();
+  </script>
+</body>
+</html>
